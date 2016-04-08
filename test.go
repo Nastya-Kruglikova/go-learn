@@ -8,12 +8,13 @@ import (
     "flag"
     "net/http"
     "io"
+    "sync"
 )
 
 func panic(err error) {
     if err != nil {
         fmt.Println(err)
-        panic(err)
+        log.Fatal(err)
     }
 }
 
@@ -31,20 +32,11 @@ func get_file(url string, i int) int64{
     return size
 }
 
-func c_parse(url string, i int, c chan int64){
-    size := get_file(url, i)
-    c <- size
-}
-
-func parse(url string, i int){
-    fmt.Println(get_file(url, i))
-}
-
 func main() {
     filePtr := flag.String("file_path", "test.txt", "path to file with url")
-    concurentPtr := flag.Bool("concurent", false, "run program in concurent mode")
+    concurentPtr := flag.Int("concurent", 4, "run program in concurent mode with n goroutines")
+    var wg sync.WaitGroup
     flag.Parse()
-    fmt.Println(*concurentPtr)
     file, err := os.Open(*filePtr)
     if err != nil {
         log.Fatal(err)
@@ -52,20 +44,14 @@ func main() {
     defer file.Close()
 
     scanner := bufio.NewScanner(file)
-    c := make(chan int64)
-    defer close(c)
-    i := 0
-    for scanner.Scan() {
-        if *concurentPtr {
-            go c_parse(scanner.Text(), i, c)
-        } else {
-            parse(scanner.Text(), i)
-        }
-        i++
+    wg.Add(*concurentPtr)
+    for i:=0; i<(*concurentPtr); i++ {
+        go func() {
+            defer wg.Done()
+            for scanner.Scan() {
+                get_file(scanner.Text(), i)
+            }
+        }()
     }
-    if *concurentPtr {
-        for j:=0; j<i; j++ {
-            fmt.Println(<-c)
-        }
-    }
+    wg.Wait()
 }
