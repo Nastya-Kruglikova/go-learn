@@ -11,6 +11,7 @@ import (
     "crypto/sha256"
     "flag"
     "encoding/hex"
+    "hash"
 )
 
 const BlockSize = 64
@@ -41,12 +42,11 @@ func getHash(item *item){
     item.hash = hasher.Sum(nil)
 }
 
-func folderHash(item *item){
-    hasher := sha256.New()
+func folderHash(item *item, hasher hash.Hash){
     for _, child := range item.children {
         hasher.Write(child.hash)
+        folderHash(child, hasher)
     }
-    item.hash = hasher.Sum(nil)
 }
 
 func main() {
@@ -97,12 +97,14 @@ func main() {
         }()
     }
     for _, item := range folders {
-        for _, child := range item.children {
-            ch <- child
-        }
+        ch <- item
     }
     for _, item := range folders {
-        folderHash(item)
+        if len(item.children) > 0 {
+            hasher := sha256.New()
+            folderHash(item, hasher)
+            item.hash = hasher.Sum(nil)
+        }
     }
     close(ch)
     wg.Wait()

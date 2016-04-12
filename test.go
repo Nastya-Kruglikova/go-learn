@@ -43,7 +43,6 @@ func main() {
     }
     defer file.Close()
 
-    scanner := bufio.NewScanner(file)
     wg.Add(*concurentPtr)
     for i:=0; i<(*concurentPtr); i++ {
         go func() {
@@ -52,6 +51,10 @@ func main() {
                 get_file(scanner.Text(), i)
             }
         }()
+    }
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        c <- scanner.Text()
     }
     wg.Wait()
 }
